@@ -42,11 +42,6 @@
             opacity: 0.9;
             font-size: 14px;
         }
-        .sync-status {
-            font-size: 12px;
-            opacity: 0.8;
-            margin-top: 8px;
-        }
         .content {
             padding: 2rem;
         }
@@ -191,19 +186,6 @@
             padding-top: 8px;
             margin-top: 8px;
         }
-        .loading {
-            text-align: center;
-            padding: 2rem;
-            color: #6b7280;
-        }
-        .error {
-            background: #FEE2E2;
-            border: 1px solid #FECACA;
-            color: #991B1B;
-            padding: 1rem;
-            border-radius: 6px;
-            margin-bottom: 1rem;
-        }
         @media (max-width: 768px) {
             .grid-2 {
                 grid-template-columns: 1fr;
@@ -218,13 +200,14 @@
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect } = React;
+        const { useState } = React;
 
         function MinecraftMap() {
-            const [discoveries, setDiscoveries] = useState([]);
-            const [loading, setLoading] = useState(true);
-            const [error, setError] = useState(null);
-            const [lastUpdated, setLastUpdated] = useState(null);
+            const [discoveries, setDiscoveries] = useState([
+                { id: 1, name: 'Main Base', type: 'Base', x: 245, y: 64, z: -187, discoverer: 'Graham', date: '2025-06-01' },
+                { id: 2, name: 'Nether Portal', type: 'Infrastructure', x: 234, y: 34, z: -156, discoverer: 'Son', date: '2025-06-03' }
+            ]);
+            const [loadMessage, setLoadMessage] = useState('');
 
             const [newDiscovery, setNewDiscovery] = useState({
                 name: '',
@@ -246,52 +229,6 @@
                 Other: { bg: '#6B7280', text: '#F3F4F6', accent: '#374151' }
             };
 
-            // Fetch CSV from GitHub on load
-            useEffect(() => {
-                const fetchDiscoveries = async () => {
-                    try {
-                        setLoading(true);
-                        const csvUrl = 'https://raw.githubusercontent.com/gpoulton44/minecraft-pika-paradise-map/main/minecraft_discoveries.csv';
-                        const corsUrl = `https://corsproxy.io/?${csvUrl}`;
-                        const response = await fetch(corsUrl);
-                        
-                        if (!response.ok) throw new Error('Failed to fetch data from GitHub');
-                        
-                        const csv = await response.text();
-                        const rows = csv.trim().split('\n');
-                        
-                        if (rows.length < 2) throw new Error('CSV is empty');
-                        
-                        // Parse CSV (skip header)
-                        const parsed = rows.slice(1).map((row, idx) => {
-                            const cols = row.split(',');
-                            return {
-                                id: idx + 1,
-                                name: cols[0]?.trim() || '',
-                                type: cols[1]?.trim() || 'Other',
-                                x: parseInt(cols[2]) || 0,
-                                y: parseInt(cols[3]) || 64,
-                                z: parseInt(cols[4]) || 0,
-                                discoverer: cols[5]?.trim() || 'Unknown',
-                                date: cols[6]?.trim() || new Date().toISOString().split('T')[0],
-                                notes: cols[7]?.trim() || ''
-                            };
-                        }).filter(d => d.name); // Remove empty rows
-                        
-                        setDiscoveries(parsed);
-                        setLastUpdated(new Date().toLocaleTimeString());
-                        setError(null);
-                    } catch (err) {
-                        setError(`Could not load data: ${err.message}. Make sure minecraft_discoveries.csv is in your GitHub repo.`);
-                        console.error(err);
-                    } finally {
-                        setLoading(false);
-                    }
-                };
-
-                fetchDiscoveries();
-            }, []);
-
             const handleAddDiscovery = () => {
                 if (newDiscovery.name.trim()) {
                     setDiscoveries([...discoveries, {
@@ -305,6 +242,42 @@
                     setNewDiscovery({ name: '', type: 'Base', x: 0, y: 64, z: 0, discoverer: 'Graham' });
                 }
             };
+
+            // Try to load CSV file on startup
+            React.useEffect(() => {
+                const loadCSV = async () => {
+                    try {
+                        const response = await fetch('minecraft_discoveries.csv');
+                        if (response.ok) {
+                            const csv = await response.text();
+                            const rows = csv.trim().split('\n');
+                            if (rows.length > 1) {
+                                const parsed = rows.slice(1).map((row, idx) => {
+                                    const cols = row.split(',');
+                                    return {
+                                        id: idx + 1,
+                                        name: cols[0]?.trim() || '',
+                                        type: cols[1]?.trim() || 'Other',
+                                        x: parseInt(cols[2]) || 0,
+                                        y: parseInt(cols[3]) || 64,
+                                        z: parseInt(cols[4]) || 0,
+                                        discoverer: cols[5]?.trim() || 'Graham',
+                                        date: cols[6]?.trim() || new Date().toISOString().split('T')[0],
+                                        notes: cols[7]?.trim() || ''
+                                    };
+                                }).filter(d => d.name);
+                                if (parsed.length > 0) {
+                                    setDiscoveries(parsed);
+                                    setLoadMessage('✓ Loaded from CSV');
+                                }
+                            }
+                        }
+                    } catch (err) {
+                        setLoadMessage('📝 Using default data (place minecraft_discoveries.csv in same folder)');
+                    }
+                };
+                loadCSV();
+            }, []);
 
             const calculateDistance = (p1, p2) => {
                 const dx = p2.x - p1.x;
@@ -321,8 +294,6 @@
             const mapHeight = 350;
 
             const getMapCoords = (disc) => {
-                if (discoveries.length === 0) return { x: mapWidth / 2, y: mapHeight / 2 };
-                
                 const minX = Math.min(...discoveries.map(d => d.x)) - 100;
                 const maxX = Math.max(...discoveries.map(d => d.x)) + 100;
                 const minZ = Math.min(...discoveries.map(d => d.z)) - 100;
@@ -334,33 +305,15 @@
                 return { x: normX, y: normZ };
             };
 
-            if (loading) {
-                return (
-                    <div className="container">
-                        <div className="header">
-                            <h1>⛏️ Minecraft Discovery Map</h1>
-                            <p>Track bases, farms, and landmarks across your world</p>
-                        </div>
-                        <div className="content">
-                            <div className="loading">Loading discoveries from GitHub...</div>
-                        </div>
-                    </div>
-                );
-            }
-
             return (
                 <div className="container">
                     <div className="header">
                         <h1>⛏️ Minecraft Discovery Map</h1>
                         <p>Track bases, farms, and landmarks across your world</p>
-                        <div className="sync-status">
-                            {lastUpdated && `Last synced: ${lastUpdated}`}
-                        </div>
+                        {loadMessage && <p style={{fontSize: '12px', marginTop: '8px', opacity: 0.9}}>{loadMessage}</p>}
                     </div>
 
                     <div className="content">
-                        {error && <div className="error">{error}</div>}
-
                         <div className="grid-2">
                             {/* Map Panel */}
                             <div className="panel">
@@ -469,7 +422,7 @@
                                             onChange={(e) => setNewDiscovery({...newDiscovery, y: e.target.value})}
                                         />
                                     </div>
-                                    <div className="grid-3">
+                                    <div className="form-group">
                                         <label>Z</label>
                                         <input 
                                             type="number"
@@ -482,10 +435,6 @@
                                 <button className="btn" onClick={handleAddDiscovery}>
                                     Add Discovery
                                 </button>
-                                
-                                <p style={{fontSize: '12px', color: '#6b7280', marginTop: '12px', fontStyle: 'italic'}}>
-                                    💡 To sync with Excel: Save Excel as CSV, commit to GitHub, then refresh this page.
-                                </p>
                             </div>
                         </div>
 
@@ -496,51 +445,41 @@
                             </h3>
 
                             <div className="discoveries-grid">
-                                {filteredDiscoveries.length === 0 ? (
-                                    <p style={{color: '#6b7280'}}>No discoveries yet. Add one above or update your GitHub CSV!</p>
-                                ) : (
-                                    filteredDiscoveries.map(disc => {
-                                        const colors = typeColors[disc.type];
-                                        return (
-                                            <div 
-                                                key={disc.id}
-                                                className="discovery-card"
-                                                style={{borderLeftColor: colors.bg}}
-                                            >
-                                                <h4>
-                                                    {disc.name}
-                                                    <span className="type-badge" style={{background: colors.bg, color: colors.text}}>
-                                                        {disc.type}
-                                                    </span>
-                                                </h4>
-                                                
-                                                <div className="coords">
-                                                    📍 X: {disc.x} | Y: {disc.y} | Z: {disc.z}
-                                                </div>
-                                                
-                                                <div className="meta">
-                                                    👤 {disc.discoverer} · {disc.date}
-                                                </div>
-
-                                                {disc.notes && (
-                                                    <div className="meta">
-                                                        📝 {disc.notes}
-                                                    </div>
-                                                )}
-
-                                                {discoveries.length > 1 && (
-                                                    <div className="distances">
-                                                        {discoveries.filter(d => d.id !== disc.id).slice(0, 2).map(other => (
-                                                            <div key={other.id}>
-                                                                ↔ {other.name}: {calculateDistance(disc, other)} blocks
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                )}
+                                {filteredDiscoveries.map(disc => {
+                                    const colors = typeColors[disc.type];
+                                    return (
+                                        <div 
+                                            key={disc.id}
+                                            className="discovery-card"
+                                            style={{borderLeftColor: colors.bg}}
+                                        >
+                                            <h4>
+                                                {disc.name}
+                                                <span className="type-badge" style={{background: colors.bg, color: colors.text}}>
+                                                    {disc.type}
+                                                </span>
+                                            </h4>
+                                            
+                                            <div className="coords">
+                                                📍 X: {disc.x} | Y: {disc.y} | Z: {disc.z}
                                             </div>
-                                        );
-                                    })
-                                )}
+                                            
+                                            <div className="meta">
+                                                👤 {disc.discoverer} · {disc.date}
+                                            </div>
+
+                                            {discoveries.length > 1 && (
+                                                <div className="distances">
+                                                    {discoveries.filter(d => d.id !== disc.id).slice(0, 2).map(other => (
+                                                        <div key={other.id}>
+                                                            ↔ {other.name}: {calculateDistance(disc, other)} blocks
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
                             </div>
                         </div>
                     </div>
