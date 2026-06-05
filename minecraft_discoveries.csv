@@ -1,3 +1,4 @@
 Location Name,Type,X Coord,Y Coord,Z Coord,Discovered By,Date,Notes
-Main Base,Base,-1092,90,1212,Graham,2025-06-01,Village separated by river, lots of mob caves
-Village,Resource,-1451,95,307,Graham,2025-06-01,Village separated by river, lots of mob caves
+Main Base,Base,-1092,90,1212,Graham,01/06/2025,Original walled base
+Village in snow,Village,-1451,95,307,Graham,01/06/2025,"Village separated by river,  lots of mob caves"
+Test,Village,0,0,0,Graham,01/06/2025,Test
