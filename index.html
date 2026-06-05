@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Minecraft Discovery Map</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #333;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 2rem;
+            text-align: center;
+        }
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 8px;
+        }
+        .header p {
+            opacity: 0.9;
+            font-size: 14px;
+        }
+        .content {
+            padding: 2rem;
+        }
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+        .panel {
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 1.5rem;
+            background: #f9fafb;
+        }
+        .panel h3 {
+            font-size: 16px;
+            margin-bottom: 1rem;
+            color: #111827;
+            font-weight: 600;
+        }
+        .form-group {
+            margin-bottom: 12px;
+            display: flex;
+            flex-direction: column;
+        }
+        .form-group label {
+            font-size: 13px;
+            color: #6b7280;
+            margin-bottom: 4px;
+            font-weight: 500;
+        }
+        input, select {
+            padding: 10px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 14px;
+            font-family: inherit;
+            transition: border-color 0.2s;
+        }
+        input:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        .grid-3 {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 8px;
+        }
+        .btn {
+            padding: 10px 16px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+            margin-top: 4px;
+        }
+        .btn:hover {
+            background: #5568d3;
+        }
+        .btn:active {
+            transform: scale(0.98);
+        }
+        .map-container {
+            background: #1a1a1a;
+            border-radius: 8px;
+            padding: 12px;
+            border: 1px solid #e5e7eb;
+            margin-bottom: 1rem;
+        }
+        .map-container svg {
+            width: 100%;
+            height: 240px;
+        }
+        .filters {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 1rem;
+        }
+        .filter-btn {
+            padding: 6px 12px;
+            border: 1px solid #d1d5db;
+            background: white;
+            border-radius: 6px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: 500;
+        }
+        .filter-btn.active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+        .discoveries-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 12px;
+            margin-top: 1rem;
+        }
+        .discovery-card {
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 1rem;
+            background: #f9fafb;
+            border-left: 4px solid #667eea;
+        }
+        .discovery-card h4 {
+            margin: 0 0 8px 0;
+            font-size: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+        .discovery-card .type-badge {
+            font-size: 12px;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+        .discovery-card .coords {
+            font-size: 13px;
+            color: #6b7280;
+            margin-bottom: 8px;
+        }
+        .discovery-card .meta {
+            font-size: 12px;
+            color: #9ca3af;
+            margin-bottom: 8px;
+        }
+        .discovery-card .distances {
+            font-size: 12px;
+            color: #9ca3af;
+            border-top: 1px solid #e5e7eb;
+            padding-top: 8px;
+            margin-top: 8px;
+        }
+        @media (max-width: 768px) {
+            .grid-2 {
+                grid-template-columns: 1fr;
+            }
+            .content {
+                padding: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState } = React;
+
+        function MinecraftMap() {
+            const [discoveries, setDiscoveries] = useState([
+                { id: 1, name: 'Main Base', type: 'Base', x: 245, y: 64, z: -187, discoverer: 'Graham', date: '2025-06-01' },
+                { id: 2, name: 'Nether Portal', type: 'Infrastructure', x: 234, y: 34, z: -156, discoverer: 'Son', date: '2025-06-03' }
+            ]);
+
+            const [newDiscovery, setNewDiscovery] = useState({
+                name: '',
+                type: 'Base',
+                x: 0,
+                y: 64,
+                z: 0,
+                discoverer: 'Graham'
+            });
+
+            const [selectedType, setSelectedType] = useState('All');
+
+            const typeColors = {
+                Base: { bg: '#DC2626', text: '#FEE2E2', accent: '#991B1B' },
+                Farm: { bg: '#22C55E', text: '#DCFCE7', accent: '#15803D' },
+                Resource: { bg: '#EAB308', text: '#FEFCE8', accent: '#A16207' },
+                Infrastructure: { bg: '#3B82F6', text: '#DBEAFE', accent: '#1E40AF' },
+                Landmark: { bg: '#8B5CF6', text: '#F3E8FF', accent: '#6D28D9' },
+                Other: { bg: '#6B7280', text: '#F3F4F6', accent: '#374151' }
+            };
+
+            const handleAddDiscovery = () => {
+                if (newDiscovery.name.trim()) {
+                    setDiscoveries([...discoveries, {
+                        id: discoveries.length + 1,
+                        ...newDiscovery,
+                        x: parseInt(newDiscovery.x) || 0,
+                        y: parseInt(newDiscovery.y) || 64,
+                        z: parseInt(newDiscovery.z) || 0,
+                        date: new Date().toISOString().split('T')[0]
+                    }]);
+                    setNewDiscovery({ name: '', type: 'Base', x: 0, y: 64, z: 0, discoverer: 'Graham' });
+                }
+            };
+
+            const calculateDistance = (p1, p2) => {
+                const dx = p2.x - p1.x;
+                const dz = p2.z - p1.z;
+                const dy = p2.y - p1.y;
+                return Math.round(Math.sqrt(dx * dx + dy * dy + dz * dz) * 100) / 100;
+            };
+
+            const filteredDiscoveries = selectedType === 'All' 
+                ? discoveries 
+                : discoveries.filter(d => d.type === selectedType);
+
+            const mapWidth = 500;
+            const mapHeight = 350;
+
+            const getMapCoords = (disc) => {
+                const minX = Math.min(...discoveries.map(d => d.x)) - 100;
+                const maxX = Math.max(...discoveries.map(d => d.x)) + 100;
+                const minZ = Math.min(...discoveries.map(d => d.z)) - 100;
+                const maxZ = Math.max(...discoveries.map(d => d.z)) + 100;
+                
+                const normX = (disc.x - minX) / (maxX - minX) * mapWidth;
+                const normZ = (disc.z - minZ) / (maxZ - minZ) * mapHeight;
+                
+                return { x: normX, y: normZ };
+            };
+
+            return (
+                <div className="container">
+                    <div className="header">
+                        <h1>⛏️ Minecraft Discovery Map</h1>
+                        <p>Track bases, farms, and landmarks across your world</p>
+                    </div>
+
+                    <div className="content">
+                        <div className="grid-2">
+                            {/* Map Panel */}
+                            <div className="panel">
+                                <h3>Discovery Map</h3>
+                                
+                                <div className="map-container">
+                                    <svg viewBox={`0 0 ${mapWidth} ${mapHeight}`}>
+                                        <defs>
+                                            <filter id="glow">
+                                                <feGaussianBlur stdDeviation="1.5" result="coloredBlur"/>
+                                                <feMerge>
+                                                    <feMergeNode in="coloredBlur"/>
+                                                    <feMergeNode in="SourceGraphic"/>
+                                                </feMerge>
+                                            </filter>
+                                        </defs>
+                                        
+                                        {/* Grid */}
+                                        <g opacity="0.15" stroke="#888">
+                                            {[...Array(11)].map((_, i) => (
+                                                <line key={`h${i}`} x1="0" y1={i * mapHeight / 10} x2={mapWidth} y2={i * mapHeight / 10} strokeWidth="0.5"/>
+                                            ))}
+                                            {[...Array(15)].map((_, i) => (
+                                                <line key={`v${i}`} x1={i * mapWidth / 14} y1="0" x2={i * mapWidth / 14} y2={mapHeight} strokeWidth="0.5"/>
+                                            ))}
+                                        </g>
+                                        
+                                        {/* Points */}
+                                        {discoveries.map(disc => {
+                                            const colors = typeColors[disc.type];
+                                            const coords = getMapCoords(disc);
+                                            return (
+                                                <g key={disc.id}>
+                                                    <circle cx={coords.x} cy={coords.y} r="6" fill={colors.bg} opacity="0.9" filter="url(#glow)"/>
+                                                    <circle cx={coords.x} cy={coords.y} r="6" fill="none" stroke={colors.accent} strokeWidth="1.5" opacity="0.6"/>
+                                                </g>
+                                            );
+                                        })}
+                                    </svg>
+                                </div>
+
+                                {/* Type Filter */}
+                                <div className="filters">
+                                    {['All', 'Base', 'Farm', 'Resource', 'Infrastructure', 'Landmark'].map(type => (
+                                        <button 
+                                            key={type}
+                                            className={`filter-btn ${selectedType === type ? 'active' : ''}`}
+                                            onClick={() => setSelectedType(type)}
+                                        >
+                                            {type}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Add Discovery Panel */}
+                            <div className="panel">
+                                <h3>Log Discovery</h3>
+                                
+                                <div className="form-group">
+                                    <label>Location Name</label>
+                                    <input 
+                                        type="text"
+                                        value={newDiscovery.name}
+                                        onChange={(e) => setNewDiscovery({...newDiscovery, name: e.target.value})}
+                                        placeholder="e.g., Iron Mine"
+                                    />
+                                </div>
+
+                                <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px'}}>
+                                    <div className="form-group">
+                                        <label>Type</label>
+                                        <select 
+                                            value={newDiscovery.type}
+                                            onChange={(e) => setNewDiscovery({...newDiscovery, type: e.target.value})}
+                                        >
+                                            {Object.keys(typeColors).map(t => <option key={t} value={t}>{t}</option>)}
+                                        </select>
+                                    </div>
+                                    <div className="form-group">
+                                        <label>Discoverer</label>
+                                        <select 
+                                            value={newDiscovery.discoverer}
+                                            onChange={(e) => setNewDiscovery({...newDiscovery, discoverer: e.target.value})}
+                                        >
+                                            <option>Graham</option>
+                                            <option>Son</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div className="grid-3">
+                                    <div className="form-group">
+                                        <label>X</label>
+                                        <input 
+                                            type="number"
+                                            value={newDiscovery.x}
+                                            onChange={(e) => setNewDiscovery({...newDiscovery, x: e.target.value})}
+                                        />
+                                    </div>
+                                    <div className="form-group">
+                                        <label>Y</label>
+                                        <input 
+                                            type="number"
+                                            value={newDiscovery.y}
+                                            onChange={(e) => setNewDiscovery({...newDiscovery, y: e.target.value})}
+                                        />
+                                    </div>
+                                    <div className="form-group">
+                                        <label>Z</label>
+                                        <input 
+                                            type="number"
+                                            value={newDiscovery.z}
+                                            onChange={(e) => setNewDiscovery({...newDiscovery, z: e.target.value})}
+                                        />
+                                    </div>
+                                </div>
+
+                                <button className="btn" onClick={handleAddDiscovery}>
+                                    Add Discovery
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Discoveries List */}
+                        <div>
+                            <h3 style={{fontSize: '16px', marginBottom: '1rem', fontWeight: 600}}>
+                                {selectedType === 'All' ? 'All Discoveries' : `${selectedType}s`} ({filteredDiscoveries.length})
+                            </h3>
+
+                            <div className="discoveries-grid">
+                                {filteredDiscoveries.map(disc => {
+                                    const colors = typeColors[disc.type];
+                                    return (
+                                        <div 
+                                            key={disc.id}
+                                            className="discovery-card"
+                                            style={{borderLeftColor: colors.bg}}
+                                        >
+                                            <h4>
+                                                {disc.name}
+                                                <span className="type-badge" style={{background: colors.bg, color: colors.text}}>
+                                                    {disc.type}
+                                                </span>
+                                            </h4>
+                                            
+                                            <div className="coords">
+                                                📍 X: {disc.x} | Y: {disc.y} | Z: {disc.z}
+                                            </div>
+                                            
+                                            <div className="meta">
+                                                👤 {disc.discoverer} · {disc.date}
+                                            </div>
+
+                                            {discoveries.length > 1 && (
+                                                <div className="distances">
+                                                    {discoveries.filter(d => d.id !== disc.id).slice(0, 2).map(other => (
+                                                        <div key={other.id}>
+                                                            ↔ {other.name}: {calculateDistance(disc, other)} blocks
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<MinecraftMap />);
+    </script>
+</body>
+</html>
