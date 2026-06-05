@@ -252,7 +252,8 @@
                     try {
                         setLoading(true);
                         const csvUrl = 'https://raw.githubusercontent.com/gpoulton44/minecraft-pika-paradise-map/main/minecraft_discoveries.csv';
-                        const response = await fetch(csvUrl);
+                        const corsUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(csvUrl)}`;
+                        const response = await fetch(corsUrl);
                         
                         if (!response.ok) throw new Error('Failed to fetch data from GitHub');
                         
